@@ -1,97 +1,68 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Kick Channel Visual Sync Test</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Kick Test — Optimized Scheduler</title>
 <style>
-  body {
-    background:#111; color:white; font-family:sans-serif; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; margin:0;
-  }
-  .grid {
-    display:grid; grid-template-columns:repeat(8,40px); grid-gap:5px; margin:20px 0;
-  }
-  .cell {
-    width:40px; height:40px; background:#222; border:1px solid #555; border-radius:4px; cursor:pointer; transition:background 0.1s ease;
-  }
-  .cell.active { background:#0f0; }
-  .cell.playhead { border:2px solid yellow; }
-  .cell.glow { box-shadow:0 0 10px 5px orange inset; }
-  button {padding:10px 20px; font-size:16px;}
+  body { background:#0b1220; color:#dff7ff; font-family:system-ui; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; margin:0 }
+  button { border:1px solid rgba(32,224,255,0.25); background:transparent; color:#20e0ff; padding:12px 18px; border-radius:12px; cursor:pointer; font-size:18px }
+  button:active { transform:translateY(1px) }
+  .active { background:rgba(32,224,255,0.25); box-shadow:0 0 12px rgba(32,224,255,0.6) inset }
 </style>
 </head>
 <body>
-<h2>Kick Channel Visual Sync Test</h2>
-<div class="grid" id="grid"></div>
-<button id="startBtn">Start / Stop</button>
+  <button id="playBtn">Play</button>
 
 <script>
-const grid=document.getElementById('grid');
-const cells=[];
-for(let i=0;i<8;i++){
-  const c=document.createElement('div');
-  c.className='cell';
-  c.addEventListener('click',()=>c.classList.toggle('active'));
-  grid.appendChild(c);
-  cells.push(c);
-}
-
-const AudioContext=window.AudioContext||window.webkitAudioContext;
-const audioCtx=new AudioContext();
-let currentStep=0;
-let nextNoteTime=0;
-const bpm=120;
-const stepDur=(60/bpm)/2; // eighth note resolution
-let isPlaying=false;
-let schedulerId;
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+const audioCtx = new AudioCtx();
+const master = audioCtx.createGain();
+master.gain.value = 0.8;
+master.connect(audioCtx.destination);
 
 function playKick(time){
-  const osc=audioCtx.createOscillator();
-  const gain=audioCtx.createGain();
-  osc.frequency.setValueAtTime(150,time);
-  osc.frequency.exponentialRampToValueAtTime(50,time+0.1);
-  gain.gain.setValueAtTime(1,time);
-  gain.gain.exponentialRampToValueAtTime(0.001,time+0.1);
-  osc.connect(gain).connect(audioCtx.destination);
+  // Clear sine beep (440 Hz, short duration)
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'sine';
+  osc.frequency.value = 440;
+  gain.gain.setValueAtTime(1, time);
+  gain.gain.exponentialRampToValueAtTime(0.001, time + 0.15);
+  osc.connect(gain).connect(master);
   osc.start(time);
-  osc.stop(time+0.1);
+  osc.stop(time + 0.15);
 }
 
-function scheduleNote(beatNumber,time){
-  if(cells[beatNumber].classList.contains("active")){
-    playKick(time);
-    // Delay glow to actual playback time
-    setTimeout(()=>{
-      cells[beatNumber].classList.add("glow");
-      setTimeout(()=>cells[beatNumber].classList.remove("glow"),100);
-    },(time - audioCtx.currentTime)*1000);
+let isRunning = false;
+let nextNoteTime = 0;
+let currentStep = 0;
+let scheduleTimer = null;
+let lookahead = 0.1;
+let scheduleInterval = 25; // ms
+const sps = (60 / 120) / 2; // step = 8th note at 120 BPM
+
+function schedulerTick(){
+  const now = audioCtx.currentTime;
+  while (nextNoteTime < now + lookahead) {
+    playKick(nextNoteTime + 0.0005);
+    // immediately toggle visual state for this step
+    const btn = document.getElementById('playBtn');
+    btn.classList.add('active');
+    setTimeout(()=>btn.classList.remove('active'), 80);
+    nextNoteTime += sps;
+    currentStep = (currentStep + 1) % 64;
   }
-  // Sync playhead exactly with playback
-  setTimeout(()=>{
-    cells.forEach((c,i)=>c.classList.toggle("playhead",i===beatNumber));
-  },(time - audioCtx.currentTime)*1000);
 }
 
-function scheduler(){
-  while(nextNoteTime<audioCtx.currentTime+0.1){
-    scheduleNote(currentStep,nextNoteTime);
-    nextNoteTime+=stepDur;
-    currentStep=(currentStep+1)%8;
-  }
-  schedulerId=requestAnimationFrame(scheduler);
-}
-
-document.getElementById('startBtn').addEventListener('click',()=>{
-  if(!isPlaying){
-    audioCtx.resume();
-    isPlaying=true;
-    currentStep=0;
-    nextNoteTime=audioCtx.currentTime+0.05;
-    scheduler();
-  } else {
-    isPlaying=false;
-    cancelAnimationFrame(schedulerId);
-  }
+document.getElementById('playBtn').addEventListener('click', async ()=>{
+  if(audioCtx.state === 'suspended') await audioCtx.resume();
+  if(isRunning) return;
+  isRunning = true;
+  nextNoteTime = audioCtx.currentTime + 0.05;
+  scheduleTimer = setInterval(schedulerTick, scheduleInterval);
 });
+
 </script>
 </body>
 </html>
