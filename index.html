@@ -5,14 +5,229 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Kick Test — Optimized Scheduler</title>
 <style>
-  body { background:#0b1220; color:#dff7ff; font-family:system-ui; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; margin:0 }
-  button { border:1px solid rgba(32,224,255,0.25); background:transparent; color:#20e0ff; padding:12px 18px; border-radius:12px; cursor:pointer; font-size:18px }
-  button:active { transform:translateY(1px) }
-  .active { background:rgba(32,224,255,0.25); box-shadow:0 0 12px rgba(32,224,255,0.6) inset }
+  body { 
+    background: #0b1220; 
+    color: #dff7ff; 
+    font-family: system-ui, -apple-system, sans-serif; 
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    justify-content: center; 
+    height: 100vh; 
+    margin: 0;
+    overflow: hidden;
+    background: linear-gradient(135deg, #0b1220 0%, #16284d 100%);
+  }
+  
+  h1 {
+    margin-bottom: 30px;
+    color: #20e0ff;
+    text-shadow: 0 0 10px rgba(32, 224, 255, 0.5);
+    font-weight: 600;
+  }
+  
+  .control-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    background: rgba(11, 24, 45, 0.8);
+    padding: 25px;
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(32, 224, 255, 0.2);
+    width: 300px;
+  }
+  
+  button { 
+    border: 1px solid rgba(32, 224, 255, 0.4); 
+    background: transparent; 
+    color: #20e0ff; 
+    padding: 14px 24px; 
+    border-radius: 12px; 
+    cursor: pointer; 
+    font-size: 18px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    width: 100%;
+    letter-spacing: 1px;
+    position: relative;
+    overflow: hidden;
+    z-index: 1;
+  }
+  
+  button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(32, 224, 255, 0.2), transparent);
+    transition: all 0.4s ease;
+    z-index: -1;
+  }
+  
+  button:hover::before {
+    left: 100%;
+  }
+  
+  button:hover {
+    background: rgba(32, 224, 255, 0.15); 
+    box-shadow: 0 0 20px rgba(32, 224, 255, 0.4);
+    transform: translateY(-2px);
+  }
+  
+  button:active { 
+    transform: translateY(1px); 
+  }
+  
+  .active { 
+    background: rgba(32, 224, 255, 0.25); 
+    box-shadow: 0 0 20px rgba(32, 224, 255, 0.8) inset,
+                0 0 30px rgba(32, 224, 255, 0.4);
+  }
+  
+  .visualizer {
+    width: 200px;
+    height: 100px;
+    position: relative;
+    margin: 20px 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  .waveform {
+    width: 100%;
+    height: 60px;
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .wave {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 20px;
+    background: rgba(32, 224, 255, 0.5);
+    border-radius: 50%;
+    filter: blur(8px);
+    transform-origin: center bottom;
+    transform: scaleY(0);
+    transition: transform 0.1s ease-out;
+  }
+  
+  .pulse {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: rgba(32, 224, 255, 0.6);
+    position: absolute;
+    transform: scale(0);
+    opacity: 0;
+    filter: blur(6px);
+  }
+  
+  .controls {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    width: 100%;
+  }
+  
+  .slider-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+  }
+  
+  .slider-container label {
+    font-size: 14px;
+    color: #8ac6d6;
+    display: flex;
+    justify-content: space-between;
+  }
+  
+  .slider-container span {
+    color: #20e0ff;
+    font-weight: 500;
+  }
+  
+  input[type="range"] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: rgba(32, 224, 255, 0.2);
+    outline: none;
+  }
+  
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #20e0ff;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(32, 224, 255, 0.8);
+  }
+  
+  .info {
+    margin-top: 20px;
+    font-size: 14px;
+    color: #7a9eb3;
+    text-align: center;
+    max-width: 300px;
+    line-height: 1.5;
+  }
+  
+  @keyframes pulse {
+    0% { transform: scale(0); opacity: 0.8; }
+    100% { transform: scale(4); opacity: 0; }
+  }
+  
+  @keyframes wave {
+    0% { transform: scaleY(1); }
+    100% { transform: scaleY(0.2); }
+  }
 </style>
 </head>
 <body>
-  <button id="playBtn">Play</button>
+  <h1>Sine Wave Kick Test</h1>
+  
+  <div class="control-panel">
+    <div class="visualizer">
+      <div class="waveform">
+        <div class="wave" id="wave"></div>
+      </div>
+      <div class="pulse" id="pulse"></div>
+    </div>
+    
+    <div class="controls">
+      <button id="playBtn">Play</button>
+      
+      <div class="slider-container">
+        <label>
+          Tempo: <span id="tempoValue">120</span> BPM
+        </label>
+        <input type="range" id="tempoSlider" min="60" max="180" value="120">
+      </div>
+      
+      <div class="slider-container">
+        <label>
+          Pitch: <span id="pitchValue">440</span> Hz
+        </label>
+        <input type="range" id="pitchSlider" min="110" max="880" value="440">
+      </div>
+    </div>
+  </div>
+  
+  <div class="info">
+    The sine wave oscillator is now active. Adjust tempo and pitch using the sliders.
+  </div>
 
 <script>
 const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -21,48 +236,118 @@ const master = audioCtx.createGain();
 master.gain.value = 0.8;
 master.connect(audioCtx.destination);
 
-function playKick(time){
-  // Clear sine beep (440 Hz, short duration)
-  const osc = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
-  osc.type = 'sine';
-  osc.frequency.value = 440;
-  gain.gain.setValueAtTime(1, time);
-  gain.gain.exponentialRampToValueAtTime(0.001, time + 0.15);
-  osc.connect(gain).connect(master);
-  osc.start(time);
-  osc.stop(time + 0.15);
-}
+// Get DOM elements
+const playBtn = document.getElementById('playBtn');
+const wave = document.getElementById('wave');
+const pulse = document.getElementById('pulse');
+const tempoSlider = document.getElementById('tempoSlider');
+const tempoValue = document.getElementById('tempoValue');
+const pitchSlider = document.getElementById('pitchSlider');
+const pitchValue = document.getElementById('pitchValue');
 
+// Initialize variables
 let isRunning = false;
 let nextNoteTime = 0;
 let currentStep = 0;
 let scheduleTimer = null;
 let lookahead = 0.1;
 let scheduleInterval = 25; // ms
-const sps = (60 / 120) / 2; // step = 8th note at 120 BPM
+let sps = (60 / 120) / 2; // step = 8th note at 120 BPM
+let currentPitch = 440;
+
+// Update tempo value display
+tempoSlider.addEventListener('input', () => {
+  const tempo = tempoSlider.value;
+  tempoValue.textContent = tempo;
+  sps = (60 / tempo) / 2; // Recalculate step duration
+});
+
+// Update pitch value display
+pitchSlider.addEventListener('input', () => {
+  currentPitch = parseInt(pitchSlider.value);
+  pitchValue.textContent = currentPitch;
+});
+
+function playKick(time){
+  // Create and play sine wave oscillator
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  
+  osc.type = 'sine';
+  osc.frequency.value = currentPitch;
+  
+  gain.gain.setValueAtTime(1, time);
+  gain.gain.exponentialRampToValueAtTime(0.001, time + 0.15);
+  
+  osc.connect(gain).connect(master);
+  osc.start(time);
+  osc.stop(time + 0.15);
+  
+  // Visual feedback
+  animateWave();
+  animatePulse();
+}
+
+function animateWave() {
+  wave.style.transform = 'scaleY(1)';
+  wave.style.transition = 'transform 0.1s ease-out';
+  setTimeout(() => {
+    wave.style.transform = 'scaleY(0)';
+  }, 10);
+}
+
+function animatePulse() {
+  pulse.style.animation = 'none';
+  pulse.style.opacity = '0.8';
+  pulse.style.transform = 'scale(0)';
+  
+  setTimeout(() => {
+    pulse.style.animation = 'pulse 0.5s forwards';
+  }, 10);
+}
 
 function schedulerTick(){
   const now = audioCtx.currentTime;
   while (nextNoteTime < now + lookahead) {
     playKick(nextNoteTime + 0.0005);
-    // immediately toggle visual state for this step
-    const btn = document.getElementById('playBtn');
-    btn.classList.add('active');
-    setTimeout(()=>btn.classList.remove('active'), 80);
+    
+    // Visual feedback for button
+    playBtn.classList.add('active');
+    setTimeout(() => {
+      playBtn.classList.remove('active');
+    }, 80);
+    
     nextNoteTime += sps;
     currentStep = (currentStep + 1) % 64;
   }
 }
 
-document.getElementById('playBtn').addEventListener('click', async ()=>{
+playBtn.addEventListener('click', async ()=>{
   if(audioCtx.state === 'suspended') await audioCtx.resume();
-  if(isRunning) return;
-  isRunning = true;
-  nextNoteTime = audioCtx.currentTime + 0.05;
-  scheduleTimer = setInterval(schedulerTick, scheduleInterval);
+  
+  if(!isRunning) {
+    isRunning = true;
+    nextNoteTime = audioCtx.currentTime + 0.05;
+    scheduleTimer = setInterval(schedulerTick, scheduleInterval);
+    playBtn.textContent = 'Stop';
+  } else {
+    isRunning = false;
+    clearInterval(scheduleTimer);
+    playBtn.textContent = 'Play';
+    playBtn.classList.remove('active');
+  }
 });
 
+// Initial animation for the wave
+setInterval(() => {
+  if (!isRunning) {
+    wave.style.transform = 'scaleY(0.2)';
+    wave.style.transition = 'transform 1.2s ease-in-out';
+    setTimeout(() => {
+      wave.style.transform = 'scaleY(0.05)';
+    }, 10);
+  }
+}, 2000);
 </script>
 </body>
 </html>
