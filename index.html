@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Kick Channel Visual Sync Test</title>
+<style>
+  body {
+    background:#111; color:white; font-family:sans-serif; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; margin:0;
+  }
+  .grid {
+    display:grid; grid-template-columns:repeat(8,40px); grid-gap:5px; margin:20px 0;
+  }
+  .cell {
+    width:40px; height:40px; background:#222; border:1px solid #555; border-radius:4px; cursor:pointer; transition:background 0.1s ease;
+  }
+  .cell.active { background:#0f0; }
+  .cell.playhead { border:2px solid yellow; }
+  .cell.glow { box-shadow:0 0 10px 5px orange inset; }
+  button {padding:10px 20px; font-size:16px;}
+</style>
+</head>
+<body>
+<h2>Kick Channel Visual Sync Test</h2>
+<div class="grid" id="grid"></div>
+<button id="startBtn">Start / Stop</button>
+
+<script>
+const grid=document.getElementById('grid');
+const cells=[];
+for(let i=0;i<8;i++){
+  const c=document.createElement('div');
+  c.className='cell';
+  c.addEventListener('click',()=>c.classList.toggle('active'));
+  grid.appendChild(c);
+  cells.push(c);
+}
+
+const AudioContext=window.AudioContext||window.webkitAudioContext;
+const audioCtx=new AudioContext();
+let currentStep=0;
+let nextNoteTime=0;
+const bpm=120;
+const stepDur=(60/bpm)/2; // eighth note resolution
+let isPlaying=false;
+let schedulerId;
+
+function playKick(time){
+  const osc=audioCtx.createOscillator();
+  const gain=audioCtx.createGain();
+  osc.frequency.setValueAtTime(150,time);
+  osc.frequency.exponentialRampToValueAtTime(50,time+0.1);
+  gain.gain.setValueAtTime(1,time);
+  gain.gain.exponentialRampToValueAtTime(0.001,time+0.1);
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start(time);
+  osc.stop(time+0.1);
+}
+
+function scheduleNote(beatNumber,time){
+  if(cells[beatNumber].classList.contains("active")){
+    playKick(time);
+    // Delay glow to actual playback time
+    setTimeout(()=>{
+      cells[beatNumber].classList.add("glow");
+      setTimeout(()=>cells[beatNumber].classList.remove("glow"),100);
+    },(time - audioCtx.currentTime)*1000);
+  }
+  // Sync playhead exactly with playback
+  setTimeout(()=>{
+    cells.forEach((c,i)=>c.classList.toggle("playhead",i===beatNumber));
+  },(time - audioCtx.currentTime)*1000);
+}
+
+function scheduler(){
+  while(nextNoteTime<audioCtx.currentTime+0.1){
+    scheduleNote(currentStep,nextNoteTime);
+    nextNoteTime+=stepDur;
+    currentStep=(currentStep+1)%8;
+  }
+  schedulerId=requestAnimationFrame(scheduler);
+}
+
+document.getElementById('startBtn').addEventListener('click',()=>{
+  if(!isPlaying){
+    audioCtx.resume();
+    isPlaying=true;
+    currentStep=0;
+    nextNoteTime=audioCtx.currentTime+0.05;
+    scheduler();
+  } else {
+    isPlaying=false;
+    cancelAnimationFrame(schedulerId);
+  }
+});
+</script>
+</body>
+</html>
